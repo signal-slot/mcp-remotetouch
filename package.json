@@ -1,0 +1,21 @@
+{
+  "name": "mcp-remotetouch",
+  "version": "0.1.0",
+  "description": "MCP server for remote touch input via SSH to Raspberry Pi",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "mcp-remotetouch": "build/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}
