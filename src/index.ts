@@ -15,13 +15,15 @@ const server = new McpServer({
 
 // Defaults from environment variables
 function defaultConfig(overrides: Partial<SessionConfig> = {}): SessionConfig {
+  const envWidth = process.env.REMOTETOUCH_SCREEN_WIDTH;
+  const envHeight = process.env.REMOTETOUCH_SCREEN_HEIGHT;
   return {
     host: overrides.host ?? process.env.REMOTETOUCH_SSH_HOST ?? "",
     user: overrides.user ?? process.env.REMOTETOUCH_SSH_USER ?? "pi",
     port: overrides.port ?? Number(process.env.REMOTETOUCH_SSH_PORT ?? "22"),
     sshKey: overrides.sshKey ?? process.env.REMOTETOUCH_SSH_KEY ?? undefined,
-    screenWidth: overrides.screenWidth ?? Number(process.env.REMOTETOUCH_SCREEN_WIDTH ?? "800"),
-    screenHeight: overrides.screenHeight ?? Number(process.env.REMOTETOUCH_SCREEN_HEIGHT ?? "480"),
+    screenWidth: overrides.screenWidth ?? (envWidth ? Number(envWidth) : undefined),
+    screenHeight: overrides.screenHeight ?? (envHeight ? Number(envHeight) : undefined),
     useSudo: overrides.useSudo ?? (process.env.REMOTETOUCH_USE_SUDO === "true"),
   };
 }
@@ -36,8 +38,8 @@ server.tool(
     user: z.string().optional().describe("SSH user (default: env REMOTETOUCH_SSH_USER or 'pi')"),
     port: z.number().optional().describe("SSH port (default: env REMOTETOUCH_SSH_PORT or 22)"),
     sshKey: z.string().optional().describe("Path to SSH private key"),
-    screenWidth: z.number().optional().describe("Screen width in pixels (default: env REMOTETOUCH_SCREEN_WIDTH or 800)"),
-    screenHeight: z.number().optional().describe("Screen height in pixels (default: env REMOTETOUCH_SCREEN_HEIGHT or 480)"),
+    screenWidth: z.number().optional().describe("Screen width in pixels (default: auto-detected from device, or env REMOTETOUCH_SCREEN_WIDTH)"),
+    screenHeight: z.number().optional().describe("Screen height in pixels (default: auto-detected from device, or env REMOTETOUCH_SCREEN_HEIGHT)"),
     useSudo: z.boolean().optional().describe("Run daemon with sudo (default: env REMOTETOUCH_USE_SUDO or false)"),
   },
   async (params) => {
@@ -58,8 +60,11 @@ server.tool(
     }
     try {
       const sessionId = await manager.connect(config);
+      const session = manager.getSession(sessionId)!;
+      const w = session.config.screenWidth ?? "unknown";
+      const h = session.config.screenHeight ?? "unknown";
       return {
-        content: [{ type: "text", text: `Connected. Session ID: ${sessionId}\nHost: ${config.user}@${config.host}:${config.port}\nScreen: ${config.screenWidth}x${config.screenHeight}` }],
+        content: [{ type: "text", text: `Connected. Session ID: ${sessionId}\nHost: ${config.user}@${config.host}:${config.port}\nScreen: ${w}x${h}` }],
       };
     } catch (err) {
       return {

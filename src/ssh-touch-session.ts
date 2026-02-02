@@ -21,8 +21,7 @@ export class SshTouchSessionManager {
     };
     this.sessions.set(sessionId, session);
 
-    const scriptBase64 = Buffer.from(PYTHON_DAEMON_SCRIPT).toString("base64");
-    const pythonCmd = `python3 -u -c "import base64,sys;exec(base64.b64decode(sys.argv[1]))" "${scriptBase64}"`;
+    const pythonCmd = `python3 -u -c "import sys,base64;exec(base64.b64decode(input()))"`;
     const remoteCmd = config.useSudo ? `sudo ${pythonCmd}` : pythonCmd;
 
     const sshArgs: string[] = [
@@ -43,6 +42,10 @@ export class SshTouchSessionManager {
     });
 
     session.process = proc;
+
+    // Send the daemon script via stdin to avoid ARG_MAX limits on embedded systems
+    const scriptBase64 = Buffer.from(PYTHON_DAEMON_SCRIPT).toString("base64");
+    proc.stdin.write(scriptBase64 + "\n");
 
     const rl = createInterface({ input: proc.stdout });
     rl.on("line", (line: string) => {
@@ -95,6 +98,13 @@ export class SshTouchSessionManager {
       if (resp.status === "error") {
         this.cleanup(session);
         throw new Error(`Daemon init failed: ${resp.message}`);
+      }
+      // Update config with daemon-detected screen resolution
+      if (resp.screen_width) {
+        session.config.screenWidth = resp.screen_width;
+      }
+      if (resp.screen_height) {
+        session.config.screenHeight = resp.screen_height;
       }
       session.active = true;
     } catch (err) {

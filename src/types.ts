@@ -5,8 +5,8 @@ export interface SessionConfig {
   user: string;
   port: number;
   sshKey?: string;
-  screenWidth: number;
-  screenHeight: number;
+  screenWidth?: number;
+  screenHeight?: number;
   useSudo: boolean;
 }
 
@@ -46,4 +46,6 @@ export interface DaemonResponse {
   id: string;
   status: "ok" | "error" | "ready";
   message?: string;
+  screen_width?: number;
+  screen_height?: number;
 }
