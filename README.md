@@ -2,7 +2,7 @@
 
 An MCP server for remotely controlling a touchscreen on any Linux device over SSH.
 
-Creates a virtual touch device via Linux `uinput` and injects tap, swipe, long press, and double tap events. **No installation required on the remote device** — the Python daemon is base64-encoded and sent as an SSH command argument, using only Python's standard library.
+Injects tap, swipe, long press, and double tap events directly into the physical touchscreen device. The daemon auto-detects the touchscreen and screen resolution. **No installation required on the remote device** — the Python daemon is sent via stdin over SSH, using only Python's standard library.
 
 ## Architecture
 
@@ -12,13 +12,16 @@ Dev Machine                              Remote Linux Device
 │ MCP Server (TS)  │ ──────────────────> │ Python daemon    │
 │ stdio transport   │    JSON-line proto  │ (stdlib only)     │
 │                   │ <────────────────── │                  │
-│ touch_tap         │                     │ /dev/uinput      │
-│ touch_swipe       │                     │   ↓              │
-│ touch_long_press  │                     │ Virtual touch    │
-│ touch_double_tap  │                     │   ↓              │
-│ touch_disconnect  │                     │ Linux Input      │
+│ touch_tap         │                     │ Auto-detect      │
+│ touch_swipe       │                     │ touchscreen      │
+│ touch_long_press  │                     │   ↓              │
+│ touch_double_tap  │                     │ /dev/input/eventN│
+│ touch_disconnect  │                     │   ↓              │
+│                   │                     │ Linux Input      │
 └──────────────────┘                     └──────────────────┘
 ```
+
+The daemon scans `/proc/bus/input/devices` to find the physical touchscreen (by checking `INPUT_PROP_DIRECT` and `ABS_MT_POSITION_X`), then injects events directly into it. This works reliably with containerized compositors (e.g., Torizon with Qt EGLFS) where virtual uinput devices may not be detected.
 
 ## Prerequisites
 
@@ -31,7 +34,7 @@ Dev Machine                              Remote Linux Device
 
 - Any Linux device with a touchscreen (Raspberry Pi, SBC, embedded system, etc.)
 - Python 3
-- Access to `/dev/uinput`
+- Read/write access to `/dev/input/eventN` (the touchscreen device)
 
 Add the user to the `input` group on the remote device:
 
@@ -39,7 +42,7 @@ Add the user to the `input` group on the remote device:
 sudo usermod -aG input $USER
 ```
 
-Re-login for the change to take effect.
+Re-login for the change to take effect. Alternatively, use the `useSudo` option.
 
 ## Installation
 
@@ -60,27 +63,24 @@ Add to Claude Desktop's `claude_desktop_config.json`:
     "remotetouch": {
       "command": "node",
       "args": ["/path/to/mcp-remotetouch/build/index.js"],
-      "env": {
-        "REMOTETOUCH_SSH_HOST": "192.168.1.100",
-        "REMOTETOUCH_SSH_USER": "pi",
-        "REMOTETOUCH_SCREEN_WIDTH": "800",
-        "REMOTETOUCH_SCREEN_HEIGHT": "480"
-      }
+      "env": {}
     }
   }
 }
 ```
 
+Screen resolution is auto-detected from the device. You can override it with `REMOTETOUCH_SCREEN_WIDTH` and `REMOTETOUCH_SCREEN_HEIGHT` if needed.
+
 ## Environment Variables
 
 | Variable | Default | Description |
 |---|---|---|
-| `REMOTETOUCH_SSH_HOST` | (required) | SSH host of the remote device |
+| `REMOTETOUCH_SSH_HOST` | (none) | SSH host of the remote device |
 | `REMOTETOUCH_SSH_USER` | `pi` | SSH username |
 | `REMOTETOUCH_SSH_PORT` | `22` | SSH port |
 | `REMOTETOUCH_SSH_KEY` | (none) | Path to SSH private key |
-| `REMOTETOUCH_SCREEN_WIDTH` | `800` | Screen width in pixels |
-| `REMOTETOUCH_SCREEN_HEIGHT` | `480` | Screen height in pixels |
+| `REMOTETOUCH_SCREEN_WIDTH` | auto-detected | Screen width in pixels |
+| `REMOTETOUCH_SCREEN_HEIGHT` | auto-detected | Screen height in pixels |
 | `REMOTETOUCH_USE_SUDO` | `false` | Run daemon with sudo |
 
 ## Tools
@@ -95,8 +95,8 @@ Connect to a remote Linux device via SSH and start the touch daemon. Returns a s
 | `user` | string? | SSH username |
 | `port` | number? | SSH port |
 | `sshKey` | string? | Path to SSH private key |
-| `screenWidth` | number? | Screen width in pixels |
-| `screenHeight` | number? | Screen height in pixels |
+| `screenWidth` | number? | Screen width (auto-detected if omitted) |
+| `screenHeight` | number? | Screen height (auto-detected if omitted) |
 | `useSudo` | boolean? | Run with sudo |
 
 ### `touch_tap`
@@ -168,16 +168,19 @@ From Claude Desktop:
 
 ## Troubleshooting
 
-### Permission denied accessing /dev/uinput
+### Permission denied
 
-The user on the remote device is not in the `input` group:
+The user on the remote device needs access to `/dev/input/eventN`. Either:
 
-```bash
-sudo usermod -aG input $USER
-# Re-login for the change to take effect
-```
+- Add the user to the `input` group: `sudo usermod -aG input $USER` (re-login required)
+- Or set `REMOTETOUCH_USE_SUDO=true`
 
-Alternatively, set `REMOTETOUCH_USE_SUDO=true`.
+### No physical touchscreen device found
+
+The daemon could not find a touchscreen in `/proc/bus/input/devices`. Verify:
+
+- The device has a touchscreen connected and its driver is loaded
+- The device shows `INPUT_PROP_DIRECT` and has `ABS_MT_POSITION_X` capability
 
 ### SSH connection fails
 
