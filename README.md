@@ -1,57 +1,57 @@
 # mcp-remotetouch
 
-SSH 経由で Raspberry Pi のタッチスクリーンをリモート操作する MCP サーバー。
+An MCP server for remotely controlling a Raspberry Pi touchscreen over SSH.
 
-Linux の `uinput` を使って仮想タッチデバイスを作成し、タップ・スワイプ・長押し・ダブルタップを注入します。**Pi 側へのインストールは不要**です。Python スクリプトは base64 エンコードして SSH 経由で送信され、Pi のプリインストール済み Python 標準ライブラリのみで動作します。
+Creates a virtual touch device via Linux `uinput` and injects tap, swipe, long press, and double tap events. **No installation required on the Pi** — the Python daemon is base64-encoded and sent as an SSH command argument, using only Python's standard library.
 
-## アーキテクチャ
+## Architecture
 
 ```
 Dev Machine                              Raspberry Pi
 ┌──────────────────┐    SSH (persistent)  ┌──────────────────┐
 │ MCP Server (TS)  │ ──────────────────> │ Python daemon    │
-│ stdio transport   │    JSON-line proto  │ (標準ライブラリのみ) │
+│ stdio transport   │    JSON-line proto  │ (stdlib only)     │
 │                   │ <────────────────── │                  │
 │ touch_tap         │                     │ /dev/uinput      │
 │ touch_swipe       │                     │   ↓              │
-│ touch_long_press  │                     │ 仮想タッチデバイス  │
+│ touch_long_press  │                     │ Virtual touch    │
 │ touch_double_tap  │                     │   ↓              │
 │ touch_disconnect  │                     │ Linux Input      │
 └──────────────────┘                     └──────────────────┘
 ```
 
-## 前提条件
+## Prerequisites
 
-### 開発マシン
+### Dev Machine
 
 - Node.js 18+
-- SSH クライアント
+- SSH client
 
 ### Raspberry Pi
 
-- Python 3（プリインストール済み）
-- `/dev/uinput` へのアクセス権限
+- Python 3 (pre-installed)
+- Access to `/dev/uinput`
 
-Pi のユーザーを `input` グループに追加してください:
+Add the Pi user to the `input` group:
 
 ```bash
 sudo usermod -aG input $USER
 ```
 
-変更を反映するには再ログインが必要です。
+Re-login for the change to take effect.
 
-## インストール
+## Installation
 
 ```bash
-git clone https://github.com/tasuku-suzuki-signalslot/mcp-remotetouch.git
+git clone https://github.com/signal-slot/mcp-remotetouch.git
 cd mcp-remotetouch
 npm install
 npm run build
 ```
 
-## MCP サーバーとして登録
+## Registering as an MCP Server
 
-Claude Desktop の `claude_desktop_config.json` に追加:
+Add to Claude Desktop's `claude_desktop_config.json`:
 
 ```json
 {
@@ -70,119 +70,119 @@ Claude Desktop の `claude_desktop_config.json` に追加:
 }
 ```
 
-## 環境変数
+## Environment Variables
 
-| 変数 | デフォルト | 説明 |
+| Variable | Default | Description |
 |---|---|---|
-| `REMOTETOUCH_SSH_HOST` | (必須) | Pi の SSH ホスト |
-| `REMOTETOUCH_SSH_USER` | `pi` | SSH ユーザー名 |
-| `REMOTETOUCH_SSH_PORT` | `22` | SSH ポート |
-| `REMOTETOUCH_SSH_KEY` | (なし) | SSH 秘密鍵のパス |
-| `REMOTETOUCH_SCREEN_WIDTH` | `800` | スクリーン幅 (px) |
-| `REMOTETOUCH_SCREEN_HEIGHT` | `480` | スクリーン高さ (px) |
-| `REMOTETOUCH_USE_SUDO` | `false` | daemon を sudo で実行 |
+| `REMOTETOUCH_SSH_HOST` | (required) | SSH host of the Pi |
+| `REMOTETOUCH_SSH_USER` | `pi` | SSH username |
+| `REMOTETOUCH_SSH_PORT` | `22` | SSH port |
+| `REMOTETOUCH_SSH_KEY` | (none) | Path to SSH private key |
+| `REMOTETOUCH_SCREEN_WIDTH` | `800` | Screen width in pixels |
+| `REMOTETOUCH_SCREEN_HEIGHT` | `480` | Screen height in pixels |
+| `REMOTETOUCH_USE_SUDO` | `false` | Run daemon with sudo |
 
-## ツール一覧
+## Tools
 
 ### `touch_connect`
 
-Pi に SSH 接続してタッチデーモンを起動。セッション ID を返します。
+Connect to the Pi via SSH and start the touch daemon. Returns a session ID.
 
-| パラメータ | 型 | 説明 |
+| Parameter | Type | Description |
 |---|---|---|
-| `host` | string? | SSH ホスト |
-| `user` | string? | SSH ユーザー |
-| `port` | number? | SSH ポート |
-| `sshKey` | string? | SSH 秘密鍵パス |
-| `screenWidth` | number? | スクリーン幅 |
-| `screenHeight` | number? | スクリーン高さ |
-| `useSudo` | boolean? | sudo で実行 |
+| `host` | string? | SSH host |
+| `user` | string? | SSH username |
+| `port` | number? | SSH port |
+| `sshKey` | string? | Path to SSH private key |
+| `screenWidth` | number? | Screen width in pixels |
+| `screenHeight` | number? | Screen height in pixels |
+| `useSudo` | boolean? | Run with sudo |
 
 ### `touch_tap`
 
-指定座標をタップ。
+Tap at the given coordinates.
 
-| パラメータ | 型 | 説明 |
+| Parameter | Type | Description |
 |---|---|---|
-| `sessionId` | string | セッション ID |
-| `x` | number | X 座標 |
-| `y` | number | Y 座標 |
-| `duration_ms` | number? | タップ時間 (デフォルト: 50ms) |
+| `sessionId` | string | Session ID |
+| `x` | number | X coordinate |
+| `y` | number | Y coordinate |
+| `duration_ms` | number? | Tap duration (default: 50ms) |
 
 ### `touch_swipe`
 
-(x1, y1) から (x2, y2) へスワイプ。
+Swipe from (x1, y1) to (x2, y2).
 
-| パラメータ | 型 | 説明 |
+| Parameter | Type | Description |
 |---|---|---|
-| `sessionId` | string | セッション ID |
-| `x1` | number | 開始 X 座標 |
-| `y1` | number | 開始 Y 座標 |
-| `x2` | number | 終了 X 座標 |
-| `y2` | number | 終了 Y 座標 |
-| `duration_ms` | number? | スワイプ時間 (デフォルト: 300ms) |
-| `steps` | number? | 補間ステップ数 |
+| `sessionId` | string | Session ID |
+| `x1` | number | Start X coordinate |
+| `y1` | number | Start Y coordinate |
+| `x2` | number | End X coordinate |
+| `y2` | number | End Y coordinate |
+| `duration_ms` | number? | Swipe duration (default: 300ms) |
+| `steps` | number? | Number of interpolation steps |
 
 ### `touch_long_press`
 
-指定座標を長押し。
+Long press at the given coordinates.
 
-| パラメータ | 型 | 説明 |
+| Parameter | Type | Description |
 |---|---|---|
-| `sessionId` | string | セッション ID |
-| `x` | number | X 座標 |
-| `y` | number | Y 座標 |
-| `duration_ms` | number? | 長押し時間 (デフォルト: 800ms) |
+| `sessionId` | string | Session ID |
+| `x` | number | X coordinate |
+| `y` | number | Y coordinate |
+| `duration_ms` | number? | Press duration (default: 800ms) |
 
 ### `touch_double_tap`
 
-指定座標をダブルタップ。
+Double tap at the given coordinates.
 
-| パラメータ | 型 | 説明 |
+| Parameter | Type | Description |
 |---|---|---|
-| `sessionId` | string | セッション ID |
-| `x` | number | X 座標 |
-| `y` | number | Y 座標 |
+| `sessionId` | string | Session ID |
+| `x` | number | X coordinate |
+| `y` | number | Y coordinate |
 
 ### `touch_disconnect`
 
-セッションを切断してデーモンをクリーンアップ。
+Disconnect a session and clean up the remote daemon.
 
-| パラメータ | 型 | 説明 |
+| Parameter | Type | Description |
 |---|---|---|
-| `sessionId` | string | セッション ID |
+| `sessionId` | string | Session ID |
 
 ### `touch_list_sessions`
 
-全セッションの一覧を表示。パラメータなし。
+List all active sessions. No parameters.
 
-## 使用例
+## Usage
 
-Claude Desktop から:
+From Claude Desktop:
 
-1. `touch_connect` で Pi に接続
-2. `touch_tap` で画面上の座標をタップ
-3. `touch_swipe` でスクロールやスワイプ操作
-4. `touch_disconnect` でセッション終了
+1. `touch_connect` to connect to the Pi
+2. `touch_tap` to tap a coordinate on the screen
+3. `touch_swipe` to scroll or swipe
+4. `touch_disconnect` to end the session
 
-## トラブルシューティング
+## Troubleshooting
 
 ### Permission denied accessing /dev/uinput
 
-Pi のユーザーが `input` グループに属していません:
+The Pi user is not in the `input` group:
 
 ```bash
 sudo usermod -aG input $USER
-# 再ログインして反映
+# Re-login for the change to take effect
 ```
 
-または環境変数 `REMOTETOUCH_USE_SUDO=true` を設定してください。
+Alternatively, set `REMOTETOUCH_USE_SUDO=true`.
 
-### SSH 接続に失敗する
+### SSH connection fails
 
-- Pi へ SSH 公開鍵認証が設定されているか確認してください（`BatchMode=yes` で接続するためパスワード認証は使えません）
-- ホスト名・ポート番号が正しいか確認してください
+- Ensure SSH public key authentication is configured for the Pi (password authentication is not supported since the connection uses `BatchMode=yes`)
+- Verify the hostname and port are correct
 
-## ライセンス
+## License
 
 MIT
