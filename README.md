@@ -1,13 +1,13 @@
 # mcp-remotetouch
 
-An MCP server for remotely controlling a Raspberry Pi touchscreen over SSH.
+An MCP server for remotely controlling a touchscreen on any Linux device over SSH.
 
-Creates a virtual touch device via Linux `uinput` and injects tap, swipe, long press, and double tap events. **No installation required on the Pi** — the Python daemon is base64-encoded and sent as an SSH command argument, using only Python's standard library.
+Creates a virtual touch device via Linux `uinput` and injects tap, swipe, long press, and double tap events. **No installation required on the remote device** — the Python daemon is base64-encoded and sent as an SSH command argument, using only Python's standard library.
 
 ## Architecture
 
 ```
-Dev Machine                              Raspberry Pi
+Dev Machine                              Remote Linux Device
 ┌──────────────────┐    SSH (persistent)  ┌──────────────────┐
 │ MCP Server (TS)  │ ──────────────────> │ Python daemon    │
 │ stdio transport   │    JSON-line proto  │ (stdlib only)     │
@@ -27,12 +27,13 @@ Dev Machine                              Raspberry Pi
 - Node.js 18+
 - SSH client
 
-### Raspberry Pi
+### Remote Device
 
-- Python 3 (pre-installed)
+- Any Linux device with a touchscreen (Raspberry Pi, SBC, embedded system, etc.)
+- Python 3
 - Access to `/dev/uinput`
 
-Add the Pi user to the `input` group:
+Add the user to the `input` group on the remote device:
 
 ```bash
 sudo usermod -aG input $USER
@@ -60,7 +61,7 @@ Add to Claude Desktop's `claude_desktop_config.json`:
       "command": "node",
       "args": ["/path/to/mcp-remotetouch/build/index.js"],
       "env": {
-        "REMOTETOUCH_SSH_HOST": "raspberrypi.local",
+        "REMOTETOUCH_SSH_HOST": "192.168.1.100",
         "REMOTETOUCH_SSH_USER": "pi",
         "REMOTETOUCH_SCREEN_WIDTH": "800",
         "REMOTETOUCH_SCREEN_HEIGHT": "480"
@@ -74,7 +75,7 @@ Add to Claude Desktop's `claude_desktop_config.json`:
 
 | Variable | Default | Description |
 |---|---|---|
-| `REMOTETOUCH_SSH_HOST` | (required) | SSH host of the Pi |
+| `REMOTETOUCH_SSH_HOST` | (required) | SSH host of the remote device |
 | `REMOTETOUCH_SSH_USER` | `pi` | SSH username |
 | `REMOTETOUCH_SSH_PORT` | `22` | SSH port |
 | `REMOTETOUCH_SSH_KEY` | (none) | Path to SSH private key |
@@ -86,7 +87,7 @@ Add to Claude Desktop's `claude_desktop_config.json`:
 
 ### `touch_connect`
 
-Connect to the Pi via SSH and start the touch daemon. Returns a session ID.
+Connect to a remote Linux device via SSH and start the touch daemon. Returns a session ID.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -160,7 +161,7 @@ List all active sessions. No parameters.
 
 From Claude Desktop:
 
-1. `touch_connect` to connect to the Pi
+1. `touch_connect` to connect to the remote device
 2. `touch_tap` to tap a coordinate on the screen
 3. `touch_swipe` to scroll or swipe
 4. `touch_disconnect` to end the session
@@ -169,7 +170,7 @@ From Claude Desktop:
 
 ### Permission denied accessing /dev/uinput
 
-The Pi user is not in the `input` group:
+The user on the remote device is not in the `input` group:
 
 ```bash
 sudo usermod -aG input $USER
@@ -180,7 +181,7 @@ Alternatively, set `REMOTETOUCH_USE_SUDO=true`.
 
 ### SSH connection fails
 
-- Ensure SSH public key authentication is configured for the Pi (password authentication is not supported since the connection uses `BatchMode=yes`)
+- Ensure SSH public key authentication is configured for the remote device (password authentication is not supported since the connection uses `BatchMode=yes`)
 - Verify the hostname and port are correct
 
 ## License

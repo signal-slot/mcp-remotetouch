@@ -1,7 +1,7 @@
 {
   "name": "mcp-remotetouch",
   "version": "0.1.0",
-  "description": "MCP server for remote touch input via SSH to Raspberry Pi",
+  "description": "MCP server for remote touch input via SSH to any Linux device",
   "type": "module",
   "main": "build/index.js",
   "bin": {

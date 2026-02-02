@@ -30,7 +30,7 @@ function defaultConfig(overrides: Partial<SessionConfig> = {}): SessionConfig {
 
 server.tool(
   "touch_connect",
-  "Connect to a Raspberry Pi via SSH and start the touch daemon. Returns a session ID for subsequent touch commands.",
+  "Connect to a remote Linux device via SSH and start the touch daemon. Returns a session ID for subsequent touch commands.",
   {
     host: z.string().optional().describe("SSH host (default: env REMOTETOUCH_SSH_HOST)"),
     user: z.string().optional().describe("SSH user (default: env REMOTETOUCH_SSH_USER or 'pi')"),
