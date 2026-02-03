@@ -6,6 +6,8 @@ Injects tap, swipe, long press, and double tap events directly into the physical
 
 ## Architecture
 
+### Stdio mode (default)
+
 ```
 Dev Machine                              Remote Linux Device
 ┌──────────────────┐    SSH (persistent)  ┌──────────────────┐
@@ -22,6 +24,18 @@ Dev Machine                              Remote Linux Device
 ```
 
 The daemon scans `/proc/bus/input/devices` to find the physical touchscreen (by checking `INPUT_PROP_DIRECT` and `ABS_MT_POSITION_X`), then injects events directly into it. This works reliably with containerized compositors (e.g., Torizon with Qt EGLFS) where virtual uinput devices may not be detected.
+
+### HTTP server mode (`--server`)
+
+```
+AI Agent (remote) ──HTTP/SSE──> Express + StreamableHTTPServerTransport
+                                         │
+                                   McpServer (per MCP session)
+                                         │
+                                SshTouchSessionManager (shared)
+                                         │
+                                   SSH ──> Linux Device
+```
 
 ## Prerequisites
 
@@ -47,22 +61,25 @@ Re-login for the change to take effect. Alternatively, use the `useSudo` option.
 ## Installation
 
 ```bash
-git clone https://github.com/signal-slot/mcp-remotetouch.git
-cd mcp-remotetouch
-npm install
-npm run build
+npm install -g mcp-remotetouch
 ```
 
-## Registering as an MCP Server
+Or run directly with `npx`:
 
-Add to Claude Desktop's `claude_desktop_config.json`:
+```bash
+npx mcp-remotetouch
+```
+
+## Usage
+
+Add to your MCP client configuration (e.g. Claude Desktop's `claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "remotetouch": {
-      "command": "node",
-      "args": ["/path/to/mcp-remotetouch/build/index.js"],
+      "command": "npx",
+      "args": ["mcp-remotetouch"],
       "env": {}
     }
   }
@@ -157,14 +174,37 @@ Disconnect a session and clean up the remote daemon.
 
 List all active sessions. No parameters.
 
-## Usage
+## HTTP Server Mode
 
-From Claude Desktop:
+Instead of running as a stdio MCP server, you can run `mcp-remotetouch` as an HTTP server that AI agents can connect to remotely over HTTP.
 
-1. `touch_connect` to connect to the remote device
-2. `touch_tap` to tap a coordinate on the screen
-3. `touch_swipe` to scroll or swipe
-4. `touch_disconnect` to end the session
+### Starting the server
+
+```bash
+# Default: listen on 0.0.0.0:3000
+npx mcp-remotetouch --server
+
+# Custom port and host
+npx mcp-remotetouch --server --port 8080 --host 127.0.0.1
+```
+
+### CLI arguments
+
+| Argument | Default | Description |
+|---|---|---|
+| `--server` | (off) | Enable HTTP server mode |
+| `--port <N>` | `3000` (or `REMOTETOUCH_PORT` env) | HTTP listen port |
+| `--host <addr>` | `0.0.0.0` | Bind address |
+
+Without `--server`, the process runs in stdio mode (the default, backward-compatible behavior).
+
+## Workflow
+
+A typical session from Claude Desktop:
+
+1. `touch_connect` — connect to the remote device
+2. `touch_tap` / `touch_swipe` / `touch_long_press` / `touch_double_tap` — interact with the screen
+3. `touch_disconnect` — end the session
 
 ## Troubleshooting
 
