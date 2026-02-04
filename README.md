@@ -202,6 +202,7 @@ Without `--server`, the process runs in stdio mode (the default, backward-compat
 
 A typical session from Claude Desktop:
 
+
 1. `touch_connect` — connect to the remote device
 2. `touch_tap` / `touch_swipe` / `touch_long_press` / `touch_double_tap` — interact with the screen
 3. `touch_disconnect` — end the session
