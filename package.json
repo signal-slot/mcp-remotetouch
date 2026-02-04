@@ -4,13 +4,34 @@
   "description": "MCP server for remote touch input via SSH to any Linux device",
   "type": "module",
   "main": "build/index.js",
+  "types": "build/index.d.ts",
   "bin": {
     "mcp-remotetouch": "build/index.js"
   },
+  "files": [
+    "build"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node build/index.js",
-    "start:server": "node build/index.js --server"
+    "start:server": "node build/index.js --server",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/signal-slot/mcp-remotetouch.git"
+  },
+  "keywords": [
+    "mcp",
+    "touch",
+    "remote",
+    "ssh",
+    "linux",
+    "uinput"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1"
