@@ -29,7 +29,7 @@ function defaultConfig(overrides: Partial<SessionConfig> = {}): SessionConfig {
 function createServer(manager: SshTouchSessionManager): McpServer {
   const server = new McpServer({
     name: "mcp-remotetouch",
-    version: "0.1.0",
+    version: "0.2.0",
   });
 
   server.tool(
