@@ -27,6 +27,8 @@ export type DaemonCommandType =
   | "swipe"
   | "long_press"
   | "double_tap"
+  | "key_press"
+  | "key_type"
   | "shutdown";
 
 export interface DaemonCommand {
@@ -40,6 +42,9 @@ export interface DaemonCommand {
   steps?: number;
   screen_width?: number;
   screen_height?: number;
+  key?: string;
+  modifiers?: string[];
+  text?: string;
 }
 
 export interface DaemonResponse {

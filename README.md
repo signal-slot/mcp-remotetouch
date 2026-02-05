@@ -2,7 +2,7 @@
 
 An MCP server for remotely controlling a touchscreen on any Linux device over SSH.
 
-Injects tap, swipe, long press, and double tap events directly into the physical touchscreen device. The daemon auto-detects the touchscreen and screen resolution. **No installation required on the remote device** — the Python daemon is sent via stdin over SSH, using only Python's standard library.
+Injects tap, swipe, long press, double tap, and keyboard events directly into the device. The daemon auto-detects the touchscreen and screen resolution. Keyboard input is injected via a virtual keyboard device created through `/dev/uinput`. **No installation required on the remote device** — the Python daemon is sent via stdin over SSH, using only Python's standard library.
 
 ## Architecture
 
@@ -18,6 +18,8 @@ Dev Machine                              Remote Linux Device
 │ touch_swipe       │                     │ touchscreen      │
 │ touch_long_press  │                     │   ↓              │
 │ touch_double_tap  │                     │ /dev/input/eventN│
+│ key_press         │                     │   ↓              │
+│ key_type          │                     │ /dev/uinput (kbd)│
 │ touch_disconnect  │                     │   ↓              │
 │                   │                     │ Linux Input      │
 └──────────────────┘                     └──────────────────┘
@@ -49,6 +51,7 @@ AI Agent (remote) ──HTTP/SSE──> Express + StreamableHTTPServerTransport
 - Any Linux device with a touchscreen (Raspberry Pi, SBC, embedded system, etc.)
 - Python 3
 - Read/write access to `/dev/input/eventN` (the touchscreen device)
+- Write access to `/dev/uinput` (for keyboard input — optional, touch works without it)
 
 Add the user to the `input` group on the remote device:
 
@@ -162,6 +165,25 @@ Double tap at the given coordinates.
 | `x` | number | X coordinate |
 | `y` | number | Y coordinate |
 
+### `key_press`
+
+Press a key with optional modifier keys. Requires `/dev/uinput` access on the remote device.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `sessionId` | string | Session ID |
+| `key` | string | Key name (e.g. `enter`, `a`, `tab`, `f1`, `up`, `space`) |
+| `modifiers` | string[]? | Modifier keys to hold (e.g. `["ctrl"]`, `["ctrl", "shift"]`) |
+
+### `key_type`
+
+Type a string of text by simulating individual key presses. Requires `/dev/uinput` access on the remote device.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `sessionId` | string | Session ID |
+| `text` | string | Text to type (e.g. `Hello, World!`) |
+
 ### `touch_disconnect`
 
 Disconnect a session and clean up the remote daemon.
@@ -205,7 +227,8 @@ A typical session from Claude Desktop:
 
 1. `touch_connect` — connect to the remote device
 2. `touch_tap` / `touch_swipe` / `touch_long_press` / `touch_double_tap` — interact with the screen
-3. `touch_disconnect` — end the session
+3. `key_press` / `key_type` — send keyboard input
+4. `touch_disconnect` — end the session
 
 ## Troubleshooting
 
@@ -222,6 +245,20 @@ The daemon could not find a touchscreen in `/proc/bus/input/devices`. Verify:
 
 - The device has a touchscreen connected and its driver is loaded
 - The device shows `INPUT_PROP_DIRECT` and has `ABS_MT_POSITION_X` capability
+
+### Keyboard input not available
+
+The `key_press` and `key_type` tools require write access to `/dev/uinput`. If keyboard is reported as unavailable:
+
+- Add a udev rule to grant access:
+  ```bash
+  echo 'KERNEL=="uinput", GROUP="input", MODE="0660"' | sudo tee /etc/udev/rules.d/99-uinput.rules
+  sudo udevadm control --reload-rules && sudo udevadm trigger
+  ```
+- Ensure the user is in the `input` group: `sudo usermod -aG input $USER` (re-login required)
+- Or set `REMOTETOUCH_USE_SUDO=true`
+
+Touch tools continue to work even if `/dev/uinput` is not accessible.
 
 ### SSH connection fails
 

@@ -26,6 +26,158 @@ ABS_MT_TRACKING_ID = 0x39
 ABS_MT_POSITION_X = 0x35
 ABS_MT_POSITION_Y = 0x36
 
+# uinput constants
+UI_SET_EVBIT  = 0x40045564
+UI_SET_KEYBIT = 0x40045565
+UI_DEV_CREATE = 0x5501
+UI_DEV_DESTROY = 0x5502
+EV_REP = 0x14
+
+# Key code mapping: key name -> Linux keycode
+KEY_MAP = {
+    'a': 30, 'b': 48, 'c': 46, 'd': 32, 'e': 18, 'f': 33, 'g': 34, 'h': 35,
+    'i': 23, 'j': 36, 'k': 37, 'l': 38, 'm': 50, 'n': 49, 'o': 24, 'p': 25,
+    'q': 16, 'r': 19, 's': 31, 't': 20, 'u': 22, 'v': 47, 'w': 17, 'x': 45,
+    'y': 21, 'z': 44,
+    '1': 2, '2': 3, '3': 4, '4': 5, '5': 6, '6': 7, '7': 8, '8': 9, '9': 10, '0': 11,
+    'enter': 28, 'tab': 15, 'space': 57, 'backspace': 14, 'escape': 1, 'delete': 111,
+    'up': 103, 'down': 108, 'left': 105, 'right': 106,
+    'home': 102, 'end': 107, 'pageup': 104, 'pagedown': 109, 'insert': 110,
+    'ctrl': 29, 'shift': 42, 'alt': 56, 'meta': 125,
+    'ctrl_r': 97, 'shift_r': 54, 'alt_r': 100,
+    'f1': 59, 'f2': 60, 'f3': 61, 'f4': 62, 'f5': 63, 'f6': 64,
+    'f7': 65, 'f8': 66, 'f9': 67, 'f10': 68, 'f11': 87, 'f12': 88,
+    'minus': 12, 'equal': 13, 'leftbrace': 26, 'rightbrace': 27,
+    'semicolon': 39, 'apostrophe': 40, 'grave': 41, 'backslash': 43,
+    'comma': 51, 'dot': 52, 'slash': 53, 'capslock': 58,
+}
+
+# Character to (key_name, needs_shift) mapping for key_type
+CHAR_MAP = {
+    'a': ('a', False), 'b': ('b', False), 'c': ('c', False), 'd': ('d', False),
+    'e': ('e', False), 'f': ('f', False), 'g': ('g', False), 'h': ('h', False),
+    'i': ('i', False), 'j': ('j', False), 'k': ('k', False), 'l': ('l', False),
+    'm': ('m', False), 'n': ('n', False), 'o': ('o', False), 'p': ('p', False),
+    'q': ('q', False), 'r': ('r', False), 's': ('s', False), 't': ('t', False),
+    'u': ('u', False), 'v': ('v', False), 'w': ('w', False), 'x': ('x', False),
+    'y': ('y', False), 'z': ('z', False),
+    'A': ('a', True), 'B': ('b', True), 'C': ('c', True), 'D': ('d', True),
+    'E': ('e', True), 'F': ('f', True), 'G': ('g', True), 'H': ('h', True),
+    'I': ('i', True), 'J': ('j', True), 'K': ('k', True), 'L': ('l', True),
+    'M': ('m', True), 'N': ('n', True), 'O': ('o', True), 'P': ('p', True),
+    'Q': ('q', True), 'R': ('r', True), 'S': ('s', True), 'T': ('t', True),
+    'U': ('u', True), 'V': ('v', True), 'W': ('w', True), 'X': ('x', True),
+    'Y': ('y', True), 'Z': ('z', True),
+    '0': ('0', False), '1': ('1', False), '2': ('2', False), '3': ('3', False),
+    '4': ('4', False), '5': ('5', False), '6': ('6', False), '7': ('7', False),
+    '8': ('8', False), '9': ('9', False),
+    ' ': ('space', False), '\\t': ('tab', False), '\\n': ('enter', False),
+    '-': ('minus', False), '=': ('equal', False),
+    '[': ('leftbrace', False), ']': ('rightbrace', False),
+    ';': ('semicolon', False), "'": ('apostrophe', False),
+    '\`': ('grave', False), '\\\\': ('backslash', False),
+    ',': ('comma', False), '.': ('dot', False), '/': ('slash', False),
+    '!': ('1', True), '@': ('2', True), '#': ('3', True), '$': ('4', True),
+    '%': ('5', True), '^': ('6', True), '&': ('7', True), '*': ('8', True),
+    '(': ('9', True), ')': ('0', True),
+    '_': ('minus', True), '+': ('equal', True),
+    '{': ('leftbrace', True), '}': ('rightbrace', True),
+    ':': ('semicolon', True), '"': ('apostrophe', True),
+    '~': ('grave', True), '|': ('backslash', True),
+    '<': ('comma', True), '>': ('dot', True), '?': ('slash', True),
+}
+
+def setup_uinput_keyboard():
+    """Create a virtual keyboard device via /dev/uinput."""
+    uinput_fd = os.open('/dev/uinput', os.O_WRONLY | os.O_NONBLOCK)
+    # Enable EV_KEY and EV_REP event types
+    fcntl.ioctl(uinput_fd, UI_SET_EVBIT, EV_KEY)
+    fcntl.ioctl(uinput_fd, UI_SET_EVBIT, EV_REP)
+    # Enable all keycodes in KEY_MAP
+    for keycode in KEY_MAP.values():
+        fcntl.ioctl(uinput_fd, UI_SET_KEYBIT, keycode)
+    # Write uinput_user_dev struct: 80-byte name + 1036 bytes of zeros = 1116 bytes
+    name = b'mcp-remotetouch-kbd'
+    dev_struct = name + b'\\x00' * (80 - len(name))  # name[80]
+    dev_struct += struct.pack('HH', 0x03, 0x01)  # id: bustype=BUS_VIRTUAL, vendor
+    dev_struct += struct.pack('HH', 0x01, 0x01)  # id: product, version
+    dev_struct += b'\\x00' * (1116 - len(dev_struct))  # ff_effects_max + absmin/max/fuzz/flat
+    os.write(uinput_fd, dev_struct)
+    fcntl.ioctl(uinput_fd, UI_DEV_CREATE)
+    time.sleep(0.2)  # Wait for device to be registered
+    return uinput_fd
+
+def destroy_uinput_keyboard(uinput_fd):
+    """Destroy the virtual keyboard device."""
+    try:
+        fcntl.ioctl(uinput_fd, UI_DEV_DESTROY)
+    except Exception:
+        pass
+    try:
+        os.close(uinput_fd)
+    except Exception:
+        pass
+
+def kbd_write_event(uinput_fd, ev_type, code, value):
+    """Write an input event to the uinput keyboard device."""
+    now = time.time()
+    sec = int(now)
+    usec = int((now - sec) * 1000000)
+    os.write(uinput_fd, struct.pack('llHHi', sec, usec, ev_type, code, value))
+
+def kbd_syn(uinput_fd):
+    kbd_write_event(uinput_fd, EV_SYN, SYN_REPORT, 0)
+
+def handle_key_press(uinput_fd, cmd):
+    """Handle key_press command: press a key with optional modifiers."""
+    key = cmd.get('key', '').lower()
+    modifiers = cmd.get('modifiers', [])
+    keycode = KEY_MAP.get(key)
+    if keycode is None:
+        raise ValueError('Unknown key: ' + cmd.get('key', ''))
+    # Press modifier keys
+    mod_codes = []
+    for mod in modifiers:
+        mc = KEY_MAP.get(mod.lower())
+        if mc is None:
+            raise ValueError('Unknown modifier: ' + mod)
+        mod_codes.append(mc)
+        kbd_write_event(uinput_fd, EV_KEY, mc, 1)
+        kbd_syn(uinput_fd)
+    # Press and release main key
+    kbd_write_event(uinput_fd, EV_KEY, keycode, 1)
+    kbd_syn(uinput_fd)
+    time.sleep(0.02)
+    kbd_write_event(uinput_fd, EV_KEY, keycode, 0)
+    kbd_syn(uinput_fd)
+    # Release modifiers in reverse order
+    for mc in reversed(mod_codes):
+        kbd_write_event(uinput_fd, EV_KEY, mc, 0)
+        kbd_syn(uinput_fd)
+
+def handle_key_type(uinput_fd, cmd):
+    """Handle key_type command: type a string of text character by character."""
+    text = cmd.get('text', '')
+    shift_code = KEY_MAP['shift']
+    for ch in text:
+        entry = CHAR_MAP.get(ch)
+        if entry is None:
+            continue  # Skip unmapped characters
+        key_name, needs_shift = entry
+        keycode = KEY_MAP[key_name]
+        if needs_shift:
+            kbd_write_event(uinput_fd, EV_KEY, shift_code, 1)
+            kbd_syn(uinput_fd)
+        kbd_write_event(uinput_fd, EV_KEY, keycode, 1)
+        kbd_syn(uinput_fd)
+        time.sleep(0.01)
+        kbd_write_event(uinput_fd, EV_KEY, keycode, 0)
+        kbd_syn(uinput_fd)
+        if needs_shift:
+            kbd_write_event(uinput_fd, EV_KEY, shift_code, 0)
+            kbd_syn(uinput_fd)
+        time.sleep(0.01)
+
 # EVIOCGABS ioctl: _IOR('E', 0x40 + abs_code, struct input_absinfo)
 # struct input_absinfo = 6 x __s32 = 24 bytes
 # _IOR('E', N, 24) = (2 << 30) | (24 << 16) | (ord('E') << 8) | N
@@ -270,6 +422,7 @@ def handle_double_tap(fd, cmd):
 def main():
     global dev_x_min, dev_x_max, dev_y_min, dev_y_max, scr_w, scr_h
     fd = None
+    kbd_fd = None
     try:
         for line in sys.stdin:
             line = line.strip()
@@ -297,7 +450,14 @@ def main():
                             scr_w = scr_w or 800
                             scr_h = scr_h or 480
                     fd, dev_path, dev_x_min, dev_x_max, dev_y_min, dev_y_max = open_touch_device(scr_w, scr_h)
-                    send_response(cmd_id, 'ready', 'injecting into ' + dev_path, scr_w, scr_h)
+                    # Best-effort keyboard setup — touch works even if uinput fails
+                    try:
+                        kbd_fd = setup_uinput_keyboard()
+                        kbd_msg = ' (keyboard: ok)'
+                    except Exception as ke:
+                        kbd_fd = None
+                        kbd_msg = ' (keyboard: unavailable - ' + str(ke) + ')'
+                    send_response(cmd_id, 'ready', 'injecting into ' + dev_path + kbd_msg, scr_w, scr_h)
                 elif cmd_type == 'shutdown':
                     send_response(cmd_id, 'ok', 'shutting down')
                     break
@@ -315,6 +475,18 @@ def main():
                 elif cmd_type == 'double_tap':
                     handle_double_tap(fd, cmd)
                     send_response(cmd_id, 'ok')
+                elif cmd_type == 'key_press':
+                    if kbd_fd is None:
+                        send_response(cmd_id, 'error', 'keyboard not available: /dev/uinput not accessible')
+                    else:
+                        handle_key_press(kbd_fd, cmd)
+                        send_response(cmd_id, 'ok')
+                elif cmd_type == 'key_type':
+                    if kbd_fd is None:
+                        send_response(cmd_id, 'error', 'keyboard not available: /dev/uinput not accessible')
+                    else:
+                        handle_key_type(kbd_fd, cmd)
+                        send_response(cmd_id, 'ok')
                 else:
                     send_response(cmd_id, 'error', 'unknown command: ' + cmd_type)
             except PermissionError:
@@ -322,6 +494,8 @@ def main():
             except Exception as e:
                 send_response(cmd_id, 'error', str(e))
     finally:
+        if kbd_fd is not None:
+            destroy_uinput_keyboard(kbd_fd)
         if fd is not None:
             try:
                 os.close(fd)

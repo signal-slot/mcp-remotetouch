@@ -198,6 +198,60 @@ function createServer(manager: SshTouchSessionManager): McpServer {
   );
 
   server.tool(
+    "key_press",
+    "Press a key with optional modifier keys on the remote device. Requires /dev/uinput access.",
+    {
+      sessionId: z.string().describe("Session ID from touch_connect"),
+      key: z.string().describe("Key name (e.g. 'enter', 'a', 'tab', 'f1', 'up', 'space')"),
+      modifiers: z.array(z.string()).optional().describe("Modifier keys to hold (e.g. ['ctrl'], ['ctrl', 'shift'])"),
+    },
+    async (params) => {
+      const cmd: DaemonCommand = {
+        id: `keypress-${Date.now()}`,
+        type: "key_press",
+        key: params.key,
+        modifiers: params.modifiers,
+      };
+      try {
+        const resp = await manager.sendCommand(params.sessionId, cmd);
+        if (resp.status === "error") {
+          return { content: [{ type: "text", text: `Key press failed: ${resp.message}` }], isError: true };
+        }
+        const mods = params.modifiers?.length ? params.modifiers.join("+") + "+" : "";
+        return { content: [{ type: "text", text: `Pressed ${mods}${params.key}` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "key_type",
+    "Type a string of text on the remote device by simulating individual key presses. Requires /dev/uinput access.",
+    {
+      sessionId: z.string().describe("Session ID from touch_connect"),
+      text: z.string().describe("Text to type (e.g. 'Hello, World!')"),
+    },
+    async (params) => {
+      const cmd: DaemonCommand = {
+        id: `keytype-${Date.now()}`,
+        type: "key_type",
+        text: params.text,
+      };
+      try {
+        const resp = await manager.sendCommand(params.sessionId, cmd);
+        if (resp.status === "error") {
+          return { content: [{ type: "text", text: `Key type failed: ${resp.message}` }], isError: true };
+        }
+        const display = params.text.length > 50 ? params.text.substring(0, 50) + "..." : params.text;
+        return { content: [{ type: "text", text: `Typed: ${display}` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
     "touch_disconnect",
     "Disconnect a touch session and clean up the remote daemon.",
     {
